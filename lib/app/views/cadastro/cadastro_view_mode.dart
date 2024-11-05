@@ -5,6 +5,7 @@ import 'package:controleusuario/app/DesignSystem/Componets/imagens/avatar_view_m
 import 'package:controleusuario/app/DesignSystem/Componets/input/text.dart';
 import 'package:controleusuario/app/DesignSystem/shared/colors.dart';
 import 'package:controleusuario/app/views/cadastro/cadastro_view.dart';
+import 'package:controleusuario/app/views/home/home_view_mode.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -64,40 +65,33 @@ class _CadastroViewModeState extends State<CadastroViewMode> {
   }
 
   Future<void> _handleCadastro() async {
-    final url = Uri.parse('http://127.0.0.1:3000/usuarios');
+    final url = Uri.parse('http://192.168.0.147:3000/usuarios');
     final request = http.MultipartRequest('POST', url);
 
+    // Collect input values
     String nome = _viewModel.nomeViewModel.controller!.text;
     String escola = _viewModel.escolaViewModel.controller!.text;
     String endereco = _viewModel.enderecoViewModel.controller!.text;
     String deposito = _viewModel.depositoViewModel.controller!.text;
 
-    print(
-        'Nome: $nome, Escola: $escola, Endereço: $endereco, Depósito: "$deposito"');
-
     if (nome.isEmpty ||
         escola.isEmpty ||
         endereco.isEmpty ||
         deposito.isEmpty) {
-      print('Erro: Um ou mais campos estão vazios.');
+      _showErrorMessage('Por favor, preencha todos os campos.');
       return;
     }
 
     double? depositoValue = _parseDecimal(deposito);
-
-    if (depositoValue == null) {
-      print(
-          'Erro: O valor do depósito não é um número válido. Valor recebido: "$deposito"');
+    if (depositoValue == null || depositoValue <= 0) {
+      _showErrorMessage('O valor do depósito deve ser um número positivo.');
       return;
     }
-
-    String formattedDeposito = depositoValue.toStringAsFixed(2);
-    print('Valor do depósito formatado: $formattedDeposito');
 
     request.fields['nome'] = nome;
     request.fields['escola'] = escola;
     request.fields['endereco'] = endereco;
-    request.fields['deposito'] = formattedDeposito;
+    request.fields['deposito'] = depositoValue.toStringAsFixed(2);
 
     if (_selectedImage != null) {
       request.files.add(
@@ -108,16 +102,20 @@ class _CadastroViewModeState extends State<CadastroViewMode> {
       final response = await request.send();
       if (response.statusCode != 201) {
         String responseBody = await response.stream.bytesToString();
-        print('Erro ao cadastrar usuário: ${response.statusCode}');
-        print('Resposta: $responseBody');
+        _showErrorMessage('Erro ao cadastrar usuário: ${response.statusCode}');
       } else {
         String responseBody = await response.stream.bytesToString();
-        print('Usuário cadastrado com sucesso: ${response.statusCode}');
-        print('Resposta: $responseBody');
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (context) => HomeViewMode()));
       }
     } catch (e) {
-      print('Erro de conexão ou de envio: $e');
+      _showErrorMessage('Erro de conexão: $e');
     }
+  }
+
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   double? _parseDecimal(String value) {
